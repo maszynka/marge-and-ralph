@@ -1,29 +1,22 @@
-# Ralph Progress Log
-Started: 2026-02-03
----
-
 ## Codebase Patterns
-- Use `getAdapter(tool)` to get the correct agent adapter for spawning agents
-- Agent prompts live in `src/prompts/*.md` and use `{PLACEHOLDER}` syntax for variable replacement
-- All agent communication uses the Signal protocol: `<!-- SIGNAL:TYPE attr="val" -->body<!-- /SIGNAL -->`
-- The `spawnAgent` function handles streaming output and signal parsing via callbacks
-- Project phases are loaded from `project.json` with structure: id, name, goal, tasks[], status
-- TypeScript code must pass `bunx tsc --noEmit` before committing
+- The project uses a `project.json` file to track phases with statuses: pending/planned/executing/complete
+- CLI commands are routed through `src/cli.ts` with auto-detect mode based on file presence (prd.json → ralph mode, project.json → full mode)
+- Status display uses UTF-8 icons for visual feedback: ✓ (complete), ▶ (executing), ○ (planned), · (pending)
+- Always use `showStatus(projectPath)` to display formatted project progress from project.json
 
+# Ralph Progress Log
+Started: 2026-02-03T04:56:20.567Z
 ---
 
-## 2026-02-03 - VE-01, VE-02, VE-03, VE-04
-- Implemented complete verification phase functionality
+## 2026-02-03T17:30:00.000Z - SE-01, SE-02, SE-03, SE-04
+- Implemented complete session management status functionality
 - Files changed:
-  - Created src/verification/verifier.ts (runVerifier function)
-  - Created src/prompts/verifier.md (verifier agent prompt)
-  - Modified src/cli.ts (wired up verify command)
+  - Created: src/state/status.ts (showStatus function)
+  - Modified: src/cli.ts (wired status command, fixed auto-detect mode)
 - **Learnings for future iterations:**
-  - Pattern: Verification follows same structure as execution - load project.json, find phase, spawn agent with prompt
-  - The VERIFICATION signal has three status values: passed (score 8-10), gaps_found (score 4-7), human_needed (score 0-3)
-  - Verifier prompt emphasizes goal-backward verification (checking if goal was achieved, not just if tasks were completed)
-  - Signal parsing happens automatically via SignalParser in spawn.ts, just provide onSignal callback
-  - The adapter system (claude, amp, codex, gemini) is handled by getAdapter() - don't need to know implementation details
-  - When adding new commands to cli.ts: import the function, add case in switch, call with proper options (tool, phase, projectPath, promptDir)
-  - Typecheck must pass before committing - all 4 user stories completed and verified
+  - The status display logic determines "CURRENT" phase intelligently: executing phase, or first pending phase after last complete phase
+  - Auto-detect mode in cli.ts checks for prd.json first (ralph mode), then project.json (full mode)
+  - The status command provides suggested next actions based on phase status: pending → plan, planned → execute, executing → verify
+  - TypeScript checks with `bunx tsc --noEmit` must pass before committing
+  - Status output format uses 60-character separator lines for clean terminal display
 ---

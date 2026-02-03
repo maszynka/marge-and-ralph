@@ -1,32 +1,32 @@
 {
-  "project": "marge-verify-phase",
-  "branchName": "feat/verify-phase",
+  "project": "marge-session-phase",
+  "branchName": "feat/session-management",
   "userStories": [
     {
-      "id": "VE-01",
-      "title": "Create src/verification/verifier.ts with runVerifier function that spawns verifier agent to check if phase goal was achieved",
-      "acceptanceCriteria": "Function exports runVerifier(opts: VerifyOptions), loads project.json, finds phase, spawns agent with verifier prompt, parses VERIFICATION signal with status (passed/gaps_found/human_needed) and score, returns verification result",
+      "id": "SE-01",
+      "title": "Create src/state/status.ts with showStatus function that displays project progress from project.json",
+      "acceptanceCriteria": "Function exports showStatus(projectPath), loads project.json, displays: project name, phases with status (pending/planned/executing/complete), current position, counts of completed vs total phases",
       "passes": true,
       "priority": 1
     },
     {
-      "id": "VE-02",
-      "title": "Create src/prompts/verifier.md prompt template for goal-backward verification",
-      "acceptanceCriteria": "Prompt includes {PHASE_GOAL}, {COMPLETED_TASKS}, {PROJECT_CONTEXT}, instructions to verify goal achievement (not just task completion), emit VERIFICATION signal with status and score, list any gaps found",
+      "id": "SE-02",
+      "title": "Wire status command in cli.ts to call showStatus",
+      "acceptanceCriteria": "case 'status' in cli.ts imports and calls showStatus, displays formatted progress report",
       "passes": true,
       "priority": 2
     },
     {
-      "id": "VE-03",
-      "title": "Wire verify command in cli.ts to call runVerifier from verification/verifier.ts",
-      "acceptanceCriteria": "case 'verify' in cli.ts imports and calls runVerifier with proper options (tool, phase, projectPath, promptDir), passes --phase flag correctly",
+      "id": "SE-03",
+      "title": "Fix auto-detect mode: when project.json exists and no command given, show status instead of error",
+      "acceptanceCriteria": "Running ./marge.sh with project.json present (and no prd.json) shows status and suggests next action (plan/execute/verify) instead of 'not implemented' error",
       "passes": true,
       "priority": 3
     },
     {
-      "id": "VE-04",
-      "title": "Test verify command: run ./marge.sh verify --phase 1, verify it spawns agent and parses VERIFICATION signal correctly",
-      "acceptanceCriteria": "Running ./marge.sh verify --phase 1 spawns verifier agent, displays result (passed/gaps_found), typecheck passes: bunx tsc --noEmit",
+      "id": "SE-04",
+      "title": "Test status command and auto-detect: run ./marge.sh and ./marge.sh status with project.json",
+      "acceptanceCriteria": "./marge.sh status displays progress, ./marge.sh (auto-detect) shows status and next action, typecheck passes: bunx tsc --noEmit",
       "passes": true,
       "priority": 4
     }
