@@ -1,33 +1,33 @@
 {
-  "project": "marge-execute-phase",
-  "branchName": "feat/execute-phase",
+  "project": "marge-verify-phase",
+  "branchName": "feat/verify-phase",
   "userStories": [
     {
-      "id": "EX-01",
-      "title": "Create src/execution/executor.ts with runExecutor function that loads project.json, finds the target phase, and executes tasks sequentially",
-      "acceptanceCriteria": "Function exports runExecutor(opts: ExecuteOptions), loads project.json, finds phase by number or next pending, spawns agent for each task, monitors TASK_COMPLETE/CHECKPOINT/BLOCKED signals, updates phase status on completion",
-      "passes": false,
+      "id": "VE-01",
+      "title": "Create src/verification/verifier.ts with runVerifier function that spawns verifier agent to check if phase goal was achieved",
+      "acceptanceCriteria": "Function exports runVerifier(opts: VerifyOptions), loads project.json, finds phase, spawns agent with verifier prompt, parses VERIFICATION signal with status (passed/gaps_found/human_needed) and score, returns verification result",
+      "passes": true,
       "priority": 1
     },
     {
-      "id": "EX-02",
-      "title": "Create src/prompts/executor.md prompt template that instructs the agent to implement a task and emit proper signals",
-      "acceptanceCriteria": "Prompt includes placeholders {TASK_DESCRIPTION}, {PROJECT_CONTEXT}, {PHASE_GOAL}, instructions for implementing task, running quality checks, committing with conventional format, and emitting TASK_COMPLETE/CHECKPOINT/BLOCKED signals",
-      "passes": false,
+      "id": "VE-02",
+      "title": "Create src/prompts/verifier.md prompt template for goal-backward verification",
+      "acceptanceCriteria": "Prompt includes {PHASE_GOAL}, {COMPLETED_TASKS}, {PROJECT_CONTEXT}, instructions to verify goal achievement (not just task completion), emit VERIFICATION signal with status and score, list any gaps found",
+      "passes": true,
       "priority": 2
     },
     {
-      "id": "EX-03",
-      "title": "Wire execute command in cli.ts to call runExecutor from execution/executor.ts",
-      "acceptanceCriteria": "case 'execute' in cli.ts imports and calls runExecutor with proper options (tool, phase, projectPath, promptDir, noVerify), passes --phase and --no-verify flags correctly",
-      "passes": false,
+      "id": "VE-03",
+      "title": "Wire verify command in cli.ts to call runVerifier from verification/verifier.ts",
+      "acceptanceCriteria": "case 'verify' in cli.ts imports and calls runVerifier with proper options (tool, phase, projectPath, promptDir), passes --phase flag correctly",
+      "passes": true,
       "priority": 3
     },
     {
-      "id": "EX-04",
-      "title": "Test execute command end-to-end: create a test project.json, run ./marge.sh execute --phase 1, verify it spawns agent and processes signals",
-      "acceptanceCriteria": "Running ./marge.sh execute --phase 1 with a valid project.json spawns the agent, displays output, and updates project.json phase status when complete. Typecheck passes: bunx tsc --noEmit",
-      "passes": false,
+      "id": "VE-04",
+      "title": "Test verify command: run ./marge.sh verify --phase 1, verify it spawns agent and parses VERIFICATION signal correctly",
+      "acceptanceCriteria": "Running ./marge.sh verify --phase 1 spawns verifier agent, displays result (passed/gaps_found), typecheck passes: bunx tsc --noEmit",
+      "passes": true,
       "priority": 4
     }
   ]

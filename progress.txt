@@ -1,3 +1,29 @@
 # Ralph Progress Log
-Started: 2026-02-03T04:43:14.853Z
+Started: 2026-02-03
+---
+
+## Codebase Patterns
+- Use `getAdapter(tool)` to get the correct agent adapter for spawning agents
+- Agent prompts live in `src/prompts/*.md` and use `{PLACEHOLDER}` syntax for variable replacement
+- All agent communication uses the Signal protocol: `<!-- SIGNAL:TYPE attr="val" -->body<!-- /SIGNAL -->`
+- The `spawnAgent` function handles streaming output and signal parsing via callbacks
+- Project phases are loaded from `project.json` with structure: id, name, goal, tasks[], status
+- TypeScript code must pass `bunx tsc --noEmit` before committing
+
+---
+
+## 2026-02-03 - VE-01, VE-02, VE-03, VE-04
+- Implemented complete verification phase functionality
+- Files changed:
+  - Created src/verification/verifier.ts (runVerifier function)
+  - Created src/prompts/verifier.md (verifier agent prompt)
+  - Modified src/cli.ts (wired up verify command)
+- **Learnings for future iterations:**
+  - Pattern: Verification follows same structure as execution - load project.json, find phase, spawn agent with prompt
+  - The VERIFICATION signal has three status values: passed (score 8-10), gaps_found (score 4-7), human_needed (score 0-3)
+  - Verifier prompt emphasizes goal-backward verification (checking if goal was achieved, not just if tasks were completed)
+  - Signal parsing happens automatically via SignalParser in spawn.ts, just provide onSignal callback
+  - The adapter system (claude, amp, codex, gemini) is handled by getAdapter() - don't need to know implementation details
+  - When adding new commands to cli.ts: import the function, add case in switch, call with proper options (tool, phase, projectPath, promptDir)
+  - Typecheck must pass before committing - all 4 user stories completed and verified
 ---
