@@ -23,6 +23,7 @@ import { runRalphMode } from "./ralph-mode";
 import { runPlanningLoop } from "./planning/planner";
 import { runOptimizer } from "./optimization/optimizer";
 import { runExecutor } from "./execution/executor";
+import { runVerifier } from "./verification/verifier";
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -199,14 +200,23 @@ async function main(): Promise<void> {
         return;
       }
 
-      case "verify":
+      case "verify": {
+        await runVerifier({
+          tool: args.tool,
+          phase: args.phase,
+          projectPath: join(process.cwd(), "project.json"),
+          promptDir: join(scriptDir, "prompts"),
+        });
+        return;
+      }
+
       case "status":
       case "init":
       case "debug":
       case "resume":
         console.log(`[marge] Command '${args.command}' — full orchestration mode`);
         console.log("[marge] Not yet implemented. Coming in Phase 4-6.");
-        console.log("[marge] Available now: ./marge.sh plan, ./marge.sh execute");
+        console.log("[marge] Available now: ./marge.sh plan, ./marge.sh execute, ./marge.sh verify");
         process.exit(1);
     }
     return;
