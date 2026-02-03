@@ -24,6 +24,7 @@ import { runPlanningLoop } from "./planning/planner";
 import { runOptimizer } from "./optimization/optimizer";
 import { runExecutor } from "./execution/executor";
 import { runVerifier } from "./verification/verifier";
+import { showStatus } from "./state/status";
 
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -210,7 +211,12 @@ async function main(): Promise<void> {
         return;
       }
 
-      case "status":
+      case "status": {
+        const projectPath = join(process.cwd(), "project.json");
+        showStatus(projectPath);
+        return;
+      }
+
       case "init":
       case "debug":
       case "resume":
@@ -237,11 +243,11 @@ async function main(): Promise<void> {
       break;
     }
 
-    case "full":
-      console.log("[marge] Detected project.json — full orchestration mode");
-      console.log("[marge] Full orchestration not yet implemented. Coming in Phase 3-6.");
-      process.exit(1);
+    case "full": {
+      const projectPath = join(process.cwd(), "project.json");
+      showStatus(projectPath);
       break;
+    }
 
     case "none":
       console.log("[marge] No prd.json or project.json found in current directory.");
