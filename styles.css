@@ -76,6 +76,10 @@ body {
     background: #5a5a5a;
 }
 
+.button.number:active {
+    background: #454545;
+}
+
 .button.operator {
     background: #ff9500;
     color: #ffffff;
@@ -126,4 +130,8 @@ body {
 
 .button.decimal:hover {
     background: #5a5a5a;
+}
+
+.button.decimal:active {
+    background: #454545;
 }
