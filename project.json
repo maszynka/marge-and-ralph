@@ -1,0 +1,52 @@
+{
+  "project": "chcialbym-kalkulator-w",
+  "description": "chcialbym kalkulator w html,css i javascript, pojedyncza strone",
+  "discoveryAnswers": "## Answers (iteration 1)\nstandard, minimalistyczny, obsluga klawiatury, bez historii, lokalny html, yes all clear.",
+  "phases": [
+    {
+      "id": "01",
+      "name": "Structure & Display",
+      "goal": "Calculator appears with proper layout, display shows input",
+      "tasks": [
+        "Create HTML structure: display area + button grid (0-9, operators, =, C, .)",
+        "Style with CSS Grid: 4-column layout, minimalist colors (dark/light contrast)",
+        "Style display: large readable numbers, right-aligned",
+        "Add button hover/active states for visual feedback"
+      ],
+      "status": "executing"
+    },
+    {
+      "id": "02",
+      "name": "Core Calculation Logic",
+      "goal": "You can perform calculations by clicking buttons",
+      "tasks": [
+        "Implement display update on number/operator clicks",
+        "Handle operator chaining (e.g., 5 + 3 × 2)",
+        "Implement equals (=) to evaluate and show result",
+        "Implement clear (C) to reset",
+        "Handle edge cases: division by zero, decimal point rules, leading zeros"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "03",
+      "name": "Keyboard Support & Polish",
+      "goal": "Full keyboard control, polished experience",
+      "tasks": [
+        "Add keyboard event listeners (0-9, +, -, *, /, Enter, Escape, Backspace)",
+        "Visual feedback: highlight button when corresponding key pressed",
+        "Add backspace functionality (delete last digit)",
+        "Final polish: focus management, prevent text selection, smooth transitions"
+      ],
+      "status": "pending"
+    }
+  ],
+  "config": {
+    "tool": "claude",
+    "workflow": {
+      "research": true,
+      "plan_check": true,
+      "verifier": true
+    }
+  }
+}

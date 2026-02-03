@@ -1,0 +1,4 @@
+node_modules/
+.last-branch
+*.log
+.DS_Store
