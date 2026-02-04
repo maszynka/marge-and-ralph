@@ -55,6 +55,8 @@ interface CliArgs {
   selector: string | null;
   path: string | null;
   pixelThreshold: number | null;
+  config: string | null; // --config <file> for figma.json
+  yes: boolean; // -y to skip prompts
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -81,6 +83,8 @@ function parseArgs(argv: string[]): CliArgs {
     selector: null,
     path: null,
     pixelThreshold: null,
+    config: null,
+    yes: false,
   };
 
   const commands = new Set(["plan", "execute", "verify", "status", "init", "debug", "resume", "optimize", "cr", "figma"]);
@@ -149,6 +153,12 @@ function parseArgs(argv: string[]): CliArgs {
       args.pixelThreshold = parseFloat(argv[++i]);
     } else if (arg.startsWith("--pixel-threshold=")) {
       args.pixelThreshold = parseFloat(arg.slice(18));
+    } else if (arg === "--config" && i + 1 < argv.length) {
+      args.config = argv[++i];
+    } else if (arg.startsWith("--config=")) {
+      args.config = arg.slice(9);
+    } else if (arg === "-y" || arg === "--yes") {
+      args.yes = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -209,7 +219,9 @@ OPTIMIZE COMMAND:
 
 FIGMA COMMAND:
   ./marge.sh figma <figma-url>           Convert Figma design to code
-  ./marge.sh figma --path <figma-url>    Explicit Figma URL flag
+  ./marge.sh figma                       Use figma.json config (with prompt)
+  ./marge.sh figma -y                    Use figma.json config (no prompt)
+  ./marge.sh figma --config <file>       Use custom config file
   ./marge.sh figma <url> --selector <s>  CSS selector for visual comparison
   ./marge.sh figma <url> --pixel-threshold <n>  Pixel diff threshold (0-1, default: 0.02)
 
@@ -347,29 +359,99 @@ async function main(): Promise<void> {
       }
 
       case "figma": {
-        // Get Figma URL from first positional arg or --path flag
-        let figmaUrl: string | undefined;
-        if (args.path) {
-          figmaUrl = args.path;
-        } else if (args.rest.length > 0) {
-          figmaUrl = args.rest[0];
+        // Check for figma.json config file
+        const configPath = args.config || join(process.cwd(), "figma.json");
+        let configFromFile: {
+          figmaUrl?: string;
+          selector?: string;
+          path?: string;
+          tool?: string;
+          pixelThreshold?: number;
+        } = {};
+
+        if (existsSync(configPath)) {
+          try {
+            const configContent = await Bun.file(configPath).text();
+            configFromFile = JSON.parse(configContent);
+
+            // If no -y flag and no CLI args provided, ask user
+            if (!args.yes && !args.path && args.rest.length === 0) {
+              console.log(`[marge] Found ${configPath}:`);
+              console.log(`  figmaUrl: ${configFromFile.figmaUrl || "(not set)"}`);
+              console.log(`  selector: ${configFromFile.selector || "(not set)"}`);
+              console.log(`  path: ${configFromFile.path || "(not set)"}`);
+              console.log(`  tool: ${configFromFile.tool || "claude"}`);
+              console.log(`  pixelThreshold: ${configFromFile.pixelThreshold || 0.02}`);
+              console.log("");
+
+              // Simple prompt using readline
+              const readline = await import("readline");
+              const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+              });
+
+              const answer = await new Promise<string>((resolve) => {
+                rl.question("Use this config? [Y/n]: ", (ans) => {
+                  rl.close();
+                  resolve(ans.trim().toLowerCase());
+                });
+              });
+
+              if (answer === "n" || answer === "no") {
+                console.log("[marge] Aborted. Pass parameters via CLI or edit figma.json");
+                process.exit(0);
+              }
+            } else if (!args.yes && (args.path || args.rest.length > 0)) {
+              // CLI args provided, they take priority (no prompt needed)
+              console.log(`[marge] Using CLI args (figma.json found but CLI takes priority)`);
+            } else if (args.yes) {
+              console.log(`[marge] Using ${configPath} (-y flag)`);
+            }
+          } catch (e) {
+            console.error(`[marge] Error reading ${configPath}:`, e);
+            process.exit(1);
+          }
         }
 
+        // Merge: CLI args take priority over config file
+        const figmaUrl = args.path || (args.rest.length > 0 ? args.rest[0] : undefined) || configFromFile.figmaUrl;
+        const selector = args.selector || configFromFile.selector;
+        const codePath = configFromFile.path; // only from config, --path is for figmaUrl
+        const tool = args.tool !== "claude" ? args.tool : (configFromFile.tool || "claude");
+        const pixelThreshold = args.pixelThreshold || configFromFile.pixelThreshold;
+
         if (!figmaUrl) {
-          console.error("[marge] Error: 'figma' command requires a Figma file URL or file key");
-          console.error("Usage: ./marge.sh figma <figma-url> [options]");
-          console.error("  or: ./marge.sh figma --path <figma-url> [options]");
+          console.error("[marge] Error: 'figma' command requires a Figma file URL");
+          console.error("");
+          console.error("Usage:");
+          console.error("  ./marge.sh figma <figma-url> [options]");
+          console.error("  ./marge.sh figma              # uses figma.json if exists");
+          console.error("  ./marge.sh figma -y           # uses figma.json without prompt");
+          console.error("");
           console.error("Options:");
-          console.error("  --selector <css-selector>  CSS selector for visual comparison");
-          console.error("  --pixel-threshold <0-1>    Pixel diff threshold (default: 0.02)");
+          console.error("  --selector <css>        CSS selector for visual comparison");
+          console.error("  --pixel-threshold <n>   Pixel diff threshold (0-1, default: 0.02)");
+          console.error("  --config <file>         Custom config file (default: figma.json)");
+          console.error("  -y, --yes               Skip confirmation prompt");
+          console.error("");
+          console.error("Or create figma.json:");
+          console.error(`  {
+    "figmaUrl": "https://figma.com/file/xxx?node-id=1:234",
+    "selector": ".my-component",
+    "path": "./src/components",
+    "tool": "claude",
+    "pixelThreshold": 0.02
+  }`);
           process.exit(1);
         }
 
         await runFigmaMode({
           figmaUrl,
-          selector: args.selector || undefined,
-          pixelThreshold: args.pixelThreshold || undefined,
-          tool: args.tool,
+          selector: selector || undefined,
+          path: codePath || undefined,
+          pixelThreshold: pixelThreshold || undefined,
+          tool,
         });
         return;
       }
