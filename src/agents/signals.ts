@@ -24,7 +24,17 @@ export type SignalType =
   | "COMPLETE"
   | "ERROR"
   | "ITERATION_ESTIMATE"
-  | "OPTIMIZATION_COMPLETE";
+  | "OPTIMIZATION_COMPLETE"
+  | "REVIEW_FINDING"
+  | "REVIEW_COMPLETE"
+  | "FIGMA_EXTRACTED"
+  | "COMPONENTS_PLANNED"
+  | "VISUAL_MATCH"
+  | "VISUAL_MISMATCH"
+  | "PIXEL_MATCH"
+  | "PIXEL_MISMATCH"
+  | "FIGMA_COMPONENT_COMPLETE"
+  | "FIGMA_COMPLETE";
 
 export interface Signal {
   type: SignalType;
@@ -75,6 +85,25 @@ export interface OptimizationCompleteSignal extends Signal {
   attrs: {
     improvements: string;
     summary?: string;
+  };
+}
+
+export interface ReviewFindingSignal extends Signal {
+  type: "REVIEW_FINDING";
+  attrs: {
+    severity: "critical" | "high" | "medium" | "low" | "info";
+    category: string;
+    file: string;
+    line?: string;
+    title: string;
+  };
+}
+
+export interface ReviewCompleteSignal extends Signal {
+  type: "REVIEW_COMPLETE";
+  attrs: {
+    outcome: "pass" | "fail" | "warning";
+    summary: string;
   };
 }
 

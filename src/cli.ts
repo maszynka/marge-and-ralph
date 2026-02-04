@@ -25,13 +25,15 @@ import { runOptimizer } from "./optimization/optimizer";
 import { runExecutor } from "./execution/executor";
 import { runVerifier } from "./verification/verifier";
 import { showStatus } from "./state/status";
+import { runCodeReview } from "./code-review/reviewer";
+import { runFigmaMode } from "./figma/figma-mode.js";
 
 // ---------------------------------------------------------------------------
 // Argument parsing
 // ---------------------------------------------------------------------------
 
 interface CliArgs {
-  command: string | null; // plan, execute, verify, status, init, debug, resume, optimize
+  command: string | null; // plan, execute, verify, status, init, debug, resume, optimize, cr, figma
   tool: string;
   model: string | null;
   phase: number | null;
@@ -41,6 +43,18 @@ interface CliArgs {
   gapsOnly: boolean;
   dryRun: boolean;
   rest: string[]; // remaining positional args (e.g., debug description, target dir)
+  // Code review specific flags
+  branch: string | null;
+  pr: string | null;
+  dod: string | null;
+  criteria: string[];
+  sandbox: boolean;
+  keepWorktree: boolean;
+  output: string | null;
+  // Figma specific flags
+  selector: string | null;
+  path: string | null;
+  pixelThreshold: number | null;
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -55,9 +69,21 @@ function parseArgs(argv: string[]): CliArgs {
     gapsOnly: false,
     dryRun: false,
     rest: [],
+    // Code review specific
+    branch: null,
+    pr: null,
+    dod: null,
+    criteria: [],
+    sandbox: false,
+    keepWorktree: false,
+    output: null,
+    // Figma specific
+    selector: null,
+    path: null,
+    pixelThreshold: null,
   };
 
-  const commands = new Set(["plan", "execute", "verify", "status", "init", "debug", "resume", "optimize"]);
+  const commands = new Set(["plan", "execute", "verify", "status", "init", "debug", "resume", "optimize", "cr", "figma"]);
   let i = 0;
 
   while (i < argv.length) {
@@ -83,6 +109,46 @@ function parseArgs(argv: string[]): CliArgs {
       args.gapsOnly = true;
     } else if (arg === "--dry-run") {
       args.dryRun = true;
+    } else if ((arg === "--branch" || arg === "-b") && i + 1 < argv.length) {
+      args.branch = argv[++i];
+    } else if (arg.startsWith("--branch=")) {
+      args.branch = arg.slice(9);
+    } else if (arg.startsWith("-b=")) {
+      args.branch = arg.slice(3);
+    } else if ((arg === "--pr" || arg === "-p") && i + 1 < argv.length) {
+      args.pr = argv[++i];
+    } else if (arg.startsWith("--pr=")) {
+      args.pr = arg.slice(5);
+    } else if (arg.startsWith("-p=")) {
+      args.pr = arg.slice(3);
+    } else if (arg === "--dod" && i + 1 < argv.length) {
+      args.dod = argv[++i];
+    } else if (arg.startsWith("--dod=")) {
+      args.dod = arg.slice(6);
+    } else if (arg === "--criteria" && i + 1 < argv.length) {
+      args.criteria.push(argv[++i]);
+    } else if (arg.startsWith("--criteria=")) {
+      args.criteria.push(arg.slice(11));
+    } else if (arg === "--sandbox") {
+      args.sandbox = true;
+    } else if (arg === "--keep-worktree") {
+      args.keepWorktree = true;
+    } else if (arg === "--output" && i + 1 < argv.length) {
+      args.output = argv[++i];
+    } else if (arg.startsWith("--output=")) {
+      args.output = arg.slice(9);
+    } else if (arg === "--selector" && i + 1 < argv.length) {
+      args.selector = argv[++i];
+    } else if (arg.startsWith("--selector=")) {
+      args.selector = arg.slice(11);
+    } else if (arg === "--path" && i + 1 < argv.length) {
+      args.path = argv[++i];
+    } else if (arg.startsWith("--path=")) {
+      args.path = arg.slice(7);
+    } else if (arg === "--pixel-threshold" && i + 1 < argv.length) {
+      args.pixelThreshold = parseFloat(argv[++i]);
+    } else if (arg.startsWith("--pixel-threshold=")) {
+      args.pixelThreshold = parseFloat(arg.slice(18));
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -120,6 +186,19 @@ USAGE:
   ./marge.sh debug "description"         Systematic debugging
   ./marge.sh resume                      Restore from last session
   ./marge.sh optimize [path]             Optimize existing codebase
+  ./marge.sh cr <pr-url|branch>          Run code review on PR or branch
+  ./marge.sh figma <figma-url>           Convert Figma design to code
+
+CODE REVIEW COMMAND:
+  ./marge.sh cr <pr-url>                 Review a PR by URL (GitHub or GitLab)
+  ./marge.sh cr <branch>                 Review a branch (auto-detect PR)
+  ./marge.sh cr --pr <url>               Explicit PR URL flag
+  ./marge.sh cr --branch <name>          Explicit branch name flag
+  ./marge.sh cr <input> --dod <path>     Custom Definition of Done file
+  ./marge.sh cr <input> --criteria <c>   Add review criteria (repeatable)
+  ./marge.sh cr <input> --sandbox        Run in Docker sandbox
+  ./marge.sh cr <input> --keep-worktree  Keep git worktree after review
+  ./marge.sh cr <input> --output <dir>   Custom output directory
 
 OPTIMIZE COMMAND:
   ./marge.sh optimize                    Optimize current directory
@@ -128,19 +207,37 @@ OPTIMIZE COMMAND:
   ./marge.sh optimize . --tool gemini    Use different AI tool
   ./marge.sh optimize . 15               Override iteration count
 
+FIGMA COMMAND:
+  ./marge.sh figma <figma-url>           Convert Figma design to code
+  ./marge.sh figma --path <figma-url>    Explicit Figma URL flag
+  ./marge.sh figma <url> --selector <s>  CSS selector for visual comparison
+  ./marge.sh figma <url> --pixel-threshold <n>  Pixel diff threshold (0-1, default: 0.02)
+
 OPTIONS:
-  --tool <name>        Agent tool: claude, amp, codex, gemini (default: claude)
-  --model <id>         Model override (e.g., claude-opus-4-20250514)
-  --phase <N>          Target phase number
-  --no-research        Skip research phase
-  --no-verify          Skip verification
-  --gaps-only          Execute only gap-closure plans
-  --dry-run            Discovery only, don't execute changes (optimize)
+  --tool <name>           Agent tool: claude, amp, codex, gemini (default: claude)
+  --model <id>            Model override (e.g., claude-opus-4-20250514)
+  --phase <N>             Target phase number
+  --no-research           Skip research phase
+  --no-verify             Skip verification
+  --gaps-only             Execute only gap-closure plans
+  --dry-run               Discovery only, don't execute changes (optimize)
+  -b, --branch <name>     Branch name for code review
+  -p, --pr <url>          PR URL for code review
+  --dod <path>            Custom DoD file for code review
+  --criteria <text>       Review criteria (can be used multiple times)
+  --sandbox               Run code review in Docker sandbox
+  --keep-worktree         Keep git worktree after code review
+  --output <dir>          Custom output directory for review artifacts
+  --selector <selector>   CSS selector for Figma visual comparison
+  --path <url>            Figma file URL or file key
+  --pixel-threshold <n>   Pixel diff threshold for Figma (0-1, default: 0.02)
 
 MODES:
   Ralph mode:    prd.json detected → iterative user story loop
   Full mode:     project.json detected → plan → execute → verify orchestration
   Optimize:      Analyze and improve existing codebase
+  Code Review:   Review PRs or branches with AI agent
+  Figma:         Convert Figma designs to pixel-perfect code
 `);
 }
 
@@ -214,6 +311,66 @@ async function main(): Promise<void> {
       case "status": {
         const projectPath = join(process.cwd(), "project.json");
         showStatus(projectPath);
+        return;
+      }
+
+      case "cr": {
+        // Determine input: --pr flag or --branch flag or first positional arg
+        let input: string | undefined;
+        if (args.pr) {
+          input = args.pr;
+        } else if (args.branch) {
+          input = args.branch;
+        } else if (args.rest.length > 0) {
+          input = args.rest[0];
+        }
+
+        if (!input) {
+          console.error("[marge] Error: 'cr' command requires a PR URL or branch name");
+          console.error("Usage: ./marge.sh cr <pr-url|branch> [options]");
+          console.error("  or: ./marge.sh cr --pr <url> [options]");
+          console.error("  or: ./marge.sh cr --branch <name> [options]");
+          process.exit(1);
+        }
+
+        await runCodeReview({
+          input,
+          dodFile: args.dod || undefined,
+          criteria: args.criteria.length > 0 ? args.criteria.join("\n") : undefined,
+          sandbox: args.sandbox ? "docker" : "none",
+          keepWorktree: args.keepWorktree,
+          outputDir: args.output || undefined,
+          tool: args.tool,
+          maxIterations: args.maxIterations,
+        });
+        return;
+      }
+
+      case "figma": {
+        // Get Figma URL from first positional arg or --path flag
+        let figmaUrl: string | undefined;
+        if (args.path) {
+          figmaUrl = args.path;
+        } else if (args.rest.length > 0) {
+          figmaUrl = args.rest[0];
+        }
+
+        if (!figmaUrl) {
+          console.error("[marge] Error: 'figma' command requires a Figma file URL or file key");
+          console.error("Usage: ./marge.sh figma <figma-url> [options]");
+          console.error("  or: ./marge.sh figma --path <figma-url> [options]");
+          console.error("Options:");
+          console.error("  --selector <css-selector>  CSS selector for visual comparison");
+          console.error("  --pixel-threshold <0-1>    Pixel diff threshold (default: 0.02)");
+          process.exit(1);
+        }
+
+        await runFigmaMode({
+          figmaUrl,
+          selector: args.selector || undefined,
+          pixelThreshold: args.pixelThreshold || undefined,
+          tool: args.tool,
+        });
         return;
       }
 
